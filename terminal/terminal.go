@@ -1,89 +1,195 @@
 package terminal
 
 import (
-	"bufio"
+	"errors"
 	"fmt"
-	"os"
+	"github.com/atotto/clipboard"
+	"github.com/nsf/termbox-go"
 	"pet/finder"
 	"strings"
-
-	"github.com/atotto/clipboard"
 )
 
 // ReadInput считывает ввод пользователя
-func ReadInput() string {
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Введите текст стиха для поиска:")
+func ReadInput() (string, error) {
 
-	fmt.Print("> ")
-	input, err := reader.ReadString('\n')
+	if err := termbox.Init(); err != nil {
+		panic(err)
+	}
+	defer termbox.Close()
+
+	// Очистить экран и вывести приглашение
+	err := termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
 	if err != nil {
-		fmt.Println("Ошибка при чтении ввода:", err)
-		return ""
+		return "", err
+	}
+	TbPrint(0, 0, termbox.ColorDefault, termbox.ColorDefault, "Введите текст стиха для поиска (Esc - выйти):")
+	err = termbox.Flush()
+	if err != nil {
+		return "", err
 	}
 
-	input = strings.TrimSpace(input)
-	return input
+	var input strings.Builder
+	for {
+		ev := termbox.PollEvent()
+		switch ev.Type {
+		case termbox.EventKey:
+			switch ev.Key {
+			case termbox.KeyEsc:
+				return "", errors.New("user exited") // Если нажата клавиша Esc, возвращаем пустую строку для выхода из программы
+			case termbox.KeyEnter:
+				termbox.Close()
+				return strings.TrimSpace(input.String()), nil // Возвращаем введенный текст без пробелов
+			case termbox.KeyBackspace, termbox.KeyBackspace2:
+				if input.Len() > 0 {
+					// Конвертируем строку в срез рун для корректной работы с юникод символами
+					runes := []rune(input.String())
+					// Удаляем последний символ
+					input.Reset()
+					input.WriteString(string(runes[:len(runes)-1]))
+				}
+			default:
+				if ev.Ch != 0 {
+					input.WriteRune(ev.Ch) // Добавляем введенный символ к строке
+				}
+			}
+
+			// Обновляем экран с текущим вводом
+			err = termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
+			if err != nil {
+				return "", err
+			}
+			TbPrint(0, 0, termbox.ColorDefault, termbox.ColorDefault, "Введите текст стиха для поиска (Esc - выйти):")
+			TbPrint(0, 1, termbox.ColorDefault, termbox.ColorDefault, input.String()+"\n")
+			err = termbox.Flush()
+			if err != nil {
+				return "", err
+			}
+		default:
+			continue
+		}
+	}
 }
 
-// DisplayPoems отображает список найденных стихов
-func DisplayPoems(poems []finder.Poem) {
-	fmt.Println("Найденные стихи:")
-	for i, poem := range poems {
-		fmt.Printf("%d %s - %s\n", i, poem.Title, poem.Author)
+// displayPoems отображает список найденных стихов
+func displayPoems(poems []finder.Poem, currentIndex int) {
+	err := termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
+	if err != nil {
+		return
 	}
+	TbPrint(0, 0, termbox.ColorDefault, termbox.ColorDefault, "Найденные стихи:")
+	for i, poem := range poems {
+		line := fmt.Sprintf("%-2d %s - %s", i, poem.Title, poem.Author)
+		color := termbox.ColorDefault
+		if i == currentIndex {
+			color = termbox.ColorCyan
+		}
+		TbPrint(0, i+1, color, termbox.ColorDefault, line)
+	}
+	err = termbox.Flush()
+	if err != nil {
+		return
+	}
+}
+
+// TbPrint formats and prints a string to the termbox buffer
+func TbPrint(x, y int, fg, bg termbox.Attribute, msg string) int {
+	for _, c := range msg {
+		if c == '\n' {
+			y++
+			x = 0
+		} else if c == '\r' {
+			continue // игнорируем '\r', он часто используется вместе с '\n'
+		} else {
+			termbox.SetCell(x, y, c, fg, bg)
+			x++
+		}
+	}
+	return y
 }
 
 // SelectPoem предлагает пользователю выбрать стихотворение из списка
 func SelectPoem(poems []finder.Poem) *finder.Poem {
+	if err := termbox.Init(); err != nil {
+		panic(err)
+	}
+	defer termbox.Close()
+
+	currentIndex := 0
+
 	for {
-		DisplayPoems(poems) // Отображаем список стихотворений на каждом повторе
-		var choice int
-		fmt.Print("Введите номер нужного стихотворения (или -1 для возврата к вводу поиска): ")
-		_, err := fmt.Scan(&choice)
-		if err != nil || choice < -1 || choice >= len(poems) {
-			fmt.Println("Неверный выбор, попробуйте снова.")
-			continue
-		}
-
-		if choice == -1 {
-			poems = poems[:0]
+		displayPoems(poems, currentIndex)
+		switch ev := termbox.PollEvent(); ev.Type {
+		case termbox.EventKey:
+			switch ev.Key {
+			case termbox.KeyArrowUp:
+				if currentIndex > 0 {
+					currentIndex--
+				}
+			case termbox.KeyArrowDown:
+				if currentIndex < len(poems)-1 {
+					currentIndex++
+				}
+			case termbox.KeyEnter:
+				displayPoemOptions(poems[currentIndex])
+				continue
+			case termbox.KeyEsc:
+				return nil
+			default:
+				continue
+			}
+		case termbox.EventError:
 			return nil
-		}
-
-		poem := &poems[choice]
-		proceed := displayPoemOptions(poem)
-		if proceed {
-			return poem
-		} else {
-			continue // Возврат к списку стихов
+		default:
+			continue
 		}
 	}
 }
 
-// displayPoemOptions предоставляет пользователю варианты действий с выбранным стихотворением
-func displayPoemOptions(poem *finder.Poem) bool {
-	fmt.Printf("Вы выбрали: %s - %s\nТекст:\n%s\n", poem.Title, poem.Author, poem.Text)
+func displayPoemOptions(poem finder.Poem) *finder.Poem {
+	err := termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
+	if err != nil {
+		return nil
+	}
+
+	// Выводим заголовок и текст стихотворения
+	lastLine := TbPrint(0, 0, termbox.ColorDefault, termbox.ColorDefault, fmt.Sprintf("Вы выбрали: %s - %s\nТекст:\n%s", poem.Title, poem.Author, poem.Text))
+
+	// Рассчитываем позицию для следующего блока текста
+	lastLine++
+
+	TbPrint(0, lastLine, termbox.ColorDefault, termbox.ColorDefault, "\nВыберите действие:")
+	lastLine++
+	TbPrint(0, lastLine, termbox.ColorDefault, termbox.ColorDefault, "С - Скопировать текст в буфер обмена")
+	lastLine++
+	TbPrint(0, lastLine, termbox.ColorDefault, termbox.ColorDefault, "Esc - Вернуться к списку стихотворений")
+	err = termbox.Flush()
+	if err != nil {
+		return nil
+	}
+
 	for {
-		fmt.Println("\nВыберите действие:")
-		fmt.Println("1 - Скопировать текст в буфер обмена")
-		fmt.Println("0 - Вернуться к списку стихотворений")
-
-		reader := bufio.NewReader(os.Stdin)
-		input, err := reader.ReadString('\n')
-		if err != nil {
-			fmt.Println("Ошибка при чтении ввода:", err)
-			continue
-		}
-
-		input = strings.TrimSpace(input)
-		if input == "1" {
-			copyToClipboard(poem.Text)
-			return true
-		} else if input == "0" {
-			return false
-		} else {
-			fmt.Println("Неверный выбор, попробуйте снова.")
+		ev := termbox.PollEvent()
+		if ev.Type == termbox.EventKey {
+			switch ev.Key {
+			case termbox.KeyEsc:
+				return nil
+			default:
+				switch ev.Ch {
+				case 'c', 'C', 'с', 'С':
+					copyToClipboard(poem.Text)
+					return nil
+				default:
+					err := termbox.Clear(termbox.ColorDefault, termbox.ColorDefault)
+					if err != nil {
+						return nil
+					}
+					TbPrint(0, lastLine+1, termbox.ColorRed, termbox.ColorDefault, "Неверный выбор, попробуйте снова.")
+					err = termbox.Flush()
+					if err != nil {
+						return nil
+					}
+				}
+			}
 		}
 	}
 }
