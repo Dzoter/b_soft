@@ -3,11 +3,13 @@ package terminal
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"os"
 	"pet/finder"
 	"strings"
 
 	"github.com/atotto/clipboard"
+	"github.com/eiannone/keyboard"
 )
 
 // ReadInput считывает ввод пользователя
@@ -26,64 +28,83 @@ func ReadInput() string {
 	return input
 }
 
-// DisplayPoems отображает список найденных стихов
-func DisplayPoems(poems []finder.Poem) {
-	fmt.Println("Найденные стихи:")
-	for i, poem := range poems {
-		fmt.Printf("%d %s - %s\n", i, poem.Title, poem.Author)
-	}
+// displayPoem отображает список найденных стихов
+func displayPoem(poem finder.Poem) {
+	fmt.Print("\033[H\033[2J")
+	fmt.Printf("%s - %s\n", poem.Title, poem.Author)
+
+}
+func DisplayMessage(message string) {
+	fmt.Print("\033[H\033[2J")
+	fmt.Printf("%s\n", message)
 }
 
 // SelectPoem предлагает пользователю выбрать стихотворение из списка
 func SelectPoem(poems []finder.Poem) *finder.Poem {
+	if err := keyboard.Open(); err != nil {
+		log.Fatal(err)
+	}
+	defer keyboard.Close()
+
+	var choice int
+
+	DisplayMessage("Стихотворения загружены, нажимайте вниз/вверх для выбора")
+
 	for {
-		DisplayPoems(poems) // Отображаем список стихотворений на каждом повторе
-		var choice int
-		fmt.Print("Введите номер нужного стихотворения (или -1 для возврата к вводу поиска): ")
-		_, err := fmt.Scan(&choice)
-		if err != nil || choice < -1 || choice >= len(poems) {
-			fmt.Println("Неверный выбор, попробуйте снова.")
-			continue
+		_, key, err := keyboard.GetKey()
+		if err != nil {
+			log.Fatal(err)
 		}
 
-		if choice == -1 {
-			poems = poems[:0]
+		switch key {
+		case keyboard.KeyEsc:
 			return nil
-		}
-
-		poem := &poems[choice]
-		proceed := displayPoemOptions(poem)
-		if proceed {
-			return poem
-		} else {
-			continue // Возврат к списку стихов
+		case keyboard.KeyArrowUp:
+			if choice > 0 {
+				choice--
+			}
+			displayPoem(poems[choice])
+		case keyboard.KeyArrowDown:
+			if choice < len(poems)-1 {
+				choice++
+			}
+			displayPoem(poems[choice])
+		case keyboard.KeyEnter:
+			res := displayPoemWithOpt(&poems[choice])
+			if res {
+				break
+			}
+			displayPoem(poems[choice])
+			continue
+		default:
+			continue
 		}
 	}
 }
 
-// displayPoemOptions предоставляет пользователю варианты действий с выбранным стихотворением
-func displayPoemOptions(poem *finder.Poem) bool {
-	fmt.Printf("Вы выбрали: %s - %s\nТекст:\n%s\n", poem.Title, poem.Author, poem.Text)
+// displayPoemWithOpt предоставляет пользователю варианты действий с выбранным стихотворением
+func displayPoemWithOpt(poem *finder.Poem) bool {
+	DisplayMessage(fmt.Sprintf("Вы выбрали: %s - %s\nТекст:\n%s\n", poem.Title, poem.Author, poem.Text))
+
 	for {
 		fmt.Println("\nВыберите действие:")
-		fmt.Println("1 - Скопировать текст в буфер обмена")
-		fmt.Println("0 - Вернуться к списку стихотворений")
+		fmt.Println("c - Скопировать текст в буфер обмена")
+		fmt.Println("Escape - Вернуться к списку стихотворений")
 
-		reader := bufio.NewReader(os.Stdin)
-		input, err := reader.ReadString('\n')
+		_, key, err := keyboard.GetKey()
 		if err != nil {
-			fmt.Println("Ошибка при чтении ввода:", err)
-			continue
+			log.Fatal(err)
 		}
 
-		input = strings.TrimSpace(input)
-		if input == "1" {
+		switch key {
+		case keyboard.KeyEsc:
+			return false
+		case keyboard.KeyCtrlC:
 			copyToClipboard(poem.Text)
 			return true
-		} else if input == "0" {
-			return false
-		} else {
-			fmt.Println("Неверный выбор, попробуйте снова.")
+		default:
+			continue
+
 		}
 	}
 }
