@@ -5,11 +5,20 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
 	"pet/finder"
+	"runtime"
 	"strings"
 
 	"github.com/atotto/clipboard"
 	"github.com/eiannone/keyboard"
+	"github.com/mattn/go-tty"
+)
+
+const (
+	ActionNext = "next"
+	ActionPrev = "prev"
+	ActionExit = "exit"
 )
 
 // ReadInput считывает ввод пользователя
@@ -28,19 +37,32 @@ func ReadInput() string {
 	return input
 }
 
+func clearScreen() {
+	switch runtime.GOOS {
+	case "linux", "darwin":
+		fmt.Print("\033[H\033[2J")
+	case "windows":
+		cmd := exec.Command("cmd", "/c", "cls")
+		cmd.Stdout = os.Stdout
+		cmd.Run()
+	}
+}
+
 // displayPoem отображает список найденных стихов
 func displayPoem(poem finder.Poem) {
-	fmt.Print("\033[H\033[2J")
+	clearScreen()
+	clearCurrentLine()
 	fmt.Printf("%s - %s\n", poem.Title, poem.Author)
-
+	moveCursorUp()
 }
+
 func DisplayMessage(message string) {
-	fmt.Print("\033[H\033[2J")
+	clearScreen()
 	fmt.Printf("%s\n", message)
 }
 
 // SelectPoem предлагает пользователю выбрать стихотворение из списка
-func SelectPoem(poems []finder.Poem) *finder.Poem {
+func SelectPoem(poems []finder.Poem) string {
 	if err := keyboard.Open(); err != nil {
 		log.Fatal(err)
 	}
@@ -58,17 +80,22 @@ func SelectPoem(poems []finder.Poem) *finder.Poem {
 
 		switch key {
 		case keyboard.KeyEsc:
-			return nil
+			return ActionExit
 		case keyboard.KeyArrowUp:
 			if choice > 0 {
 				choice--
+				displayPoem(poems[choice])
+			} else {
+				return ActionPrev // Перейти на предыдущую страницу
 			}
-			displayPoem(poems[choice])
 		case keyboard.KeyArrowDown:
 			if choice < len(poems)-1 {
 				choice++
+				fmt.Println(choice)
+				displayPoem(poems[choice])
+			} else {
+				return ActionNext // Перейти на следующую страницу
 			}
-			displayPoem(poems[choice])
 		case keyboard.KeyEnter:
 			res := displayPoemWithOpt(&poems[choice])
 			if res {
@@ -91,15 +118,15 @@ func displayPoemWithOpt(poem *finder.Poem) bool {
 		fmt.Println("c - Скопировать текст в буфер обмена")
 		fmt.Println("Escape - Вернуться к списку стихотворений")
 
-		_, key, err := keyboard.GetKey()
+		char, key, err := keyboard.GetKey()
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		switch key {
-		case keyboard.KeyEsc:
+		switch {
+		case key == keyboard.KeyEsc:
 			return false
-		case keyboard.KeyCtrlC:
+		case char == 'c' || char == 'C' || char == 'с' || char == 'С':
 			copyToClipboard(poem.Text)
 			return true
 		default:
@@ -117,4 +144,31 @@ func copyToClipboard(text string) {
 		return
 	}
 	fmt.Println("Текст успешно скопирован в буфер обмена.")
+}
+
+func clearCurrentLine() {
+	switch runtime.GOOS {
+	case "windows":
+		// Используем `cmd` для очистки текущей строки
+		cmd := exec.Command("cmd", "/c", "echo \033[K")
+		cmd.Stdout = os.Stdout
+		cmd.Run()
+	default:
+		fmt.Print("\r\033[K") // Стирает текущую строку
+	}
+}
+
+func moveCursorUp() {
+	t, err := tty.Open()
+	if err != nil {
+		fmt.Println("Ошибка при открытии TTY:", err)
+		return
+	}
+	defer t.Close()
+
+	// Отправляем ANSI escape-код для перемещения курсора вверх
+	t.Output().WriteString("\033[A")
+
+	// Принудительное обновление
+	t.Output().Sync()
 }

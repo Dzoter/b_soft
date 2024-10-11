@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
@@ -66,96 +67,88 @@ func cleanText(text string) string {
 	return strings.TrimSpace(text)
 }
 
-func FindPoem(query string) {
+func FindPoem(query string, page int) {
 	Poems = Poems[:0]
-	fmt.Println("Ищем стих:", query)
+	fmt.Printf("Ищем стих: %s страница %d", query, page)
 
 	// Список сайтов для поиска
-	sites := []string{
-		"https://www.culture.ru/literature/poems?query=",
+	baseURL := "https://www.culture.ru/literature/poems?"
+
+	params := url.Values{}
+	params.Add("page", strconv.Itoa(page))
+	params.Add("query", query)
+
+	fullURL := baseURL + params.Encode()
+	resp, err := http.Get(fullURL)
+	if err != nil {
+		fmt.Printf("Ошибка при запросе к %s: %v\n", fullURL, err)
+	}
+	defer resp.Body.Close()
+
+	doc, err := goquery.NewDocumentFromReader(resp.Body)
+	if err != nil {
+		fmt.Printf("Ошибка при парсинге HTML от %s: %v\n", fullURL, err)
 	}
 
-	escapedQuery := url.QueryEscape(query)
-
-	for _, site := range sites {
-		fullURL := site + escapedQuery
-		resp, err := http.Get(fullURL)
-		if err != nil {
-			fmt.Printf("Ошибка при запросе к %s: %v\n", site, err)
-			continue
+	// Найдем элемент <script> с данными JSON
+	scriptContent := ""
+	doc.Find("script#__NEXT_DATA__").Each(func(i int, s *goquery.Selection) {
+		if scriptType, exists := s.Attr("type"); exists && scriptType == "application/json" {
+			scriptContent = s.Text()
 		}
-		defer resp.Body.Close()
+	})
 
-		doc, err := goquery.NewDocumentFromReader(resp.Body)
-		if err != nil {
-			fmt.Printf("Ошибка при парсинге HTML от %s: %v\n", site, err)
-			continue
-		}
-
-		// Найдем элемент <script> с данными JSON
-		scriptContent := ""
-		doc.Find("script#__NEXT_DATA__").Each(func(i int, s *goquery.Selection) {
-			if scriptType, exists := s.Attr("type"); exists && scriptType == "application/json" {
-				scriptContent = s.Text()
-			}
-		})
-
-		if scriptContent == "" {
-			fmt.Printf("Не удалось найти нужный элемент <script> на сайте %s\n", site)
-			continue
-		}
-
-		// Парсинг JSON данных
-		var jsonData map[string]interface{}
-		if err := json.Unmarshal([]byte(scriptContent), &jsonData); err != nil {
-			fmt.Printf("Ошибка при парсинге JSON данных с сайта %s: %v\n", site, err)
-			continue
-		}
-
-		props, ok := safeMapInterface(jsonData["props"])
-		if !ok {
-			fmt.Printf("Отсутствует ключ 'props' в данных с сайта %s\n", site)
-			continue
-		}
-
-		pageProps, ok := safeMapInterface(props["pageProps"])
-		if !ok {
-			fmt.Printf("Отсутствует ключ 'pageProps' в данных с сайта %s\n", site)
-			continue
-		}
-
-		poems, ok := pageProps["poems"].([]interface{})
-		if !ok {
-			fmt.Printf("Отсутствует ключ 'poems' в данных с сайта %s\n", site)
-			continue
-		}
-
-		// Обработка данных о стихах
-		for _, poemData := range poems {
-			poemMap, ok := safeMapInterface(poemData)
-			if !ok {
-				continue
-			}
-
-			title, titleOk := safeString(poemMap, "title")
-			text, textOk := safeString(poemMap, "text")
-			authorMap, authorMapOk := safeMap(poemMap, "author")
-			if !titleOk || !authorMapOk || !textOk {
-				fmt.Printf("Ошибка при приведении типов для стиха на сайте %s\n", site)
-				continue
-			}
-			author, authorOk := safeString(authorMap, "title")
-			if !authorOk {
-				fmt.Printf("Ошибка при приведении типов для стиха на сайте %s\n", site)
-				continue
-			}
-			poem := Poem{
-				Title:  title,
-				Author: author,
-				Text:   cleanText(text),
-			}
-
-			Poems = append(Poems, poem)
-		}
+	if scriptContent == "" {
+		fmt.Printf("Не удалось найти нужный элемент <script> на сайте %s\n", fullURL)
 	}
+
+	// Парсинг JSON данных
+	var jsonData map[string]interface{}
+	if err = json.Unmarshal([]byte(scriptContent), &jsonData); err != nil {
+		fmt.Printf("Ошибка при парсинге JSON данных с сайта %s: %v\n", fullURL, err)
+	}
+
+	props, ok := safeMapInterface(jsonData["props"])
+	if !ok {
+		fmt.Printf("Отсутствует ключ 'props' в данных с сайта %s\n", fullURL)
+	}
+
+	pageProps, ok := safeMapInterface(props["pageProps"])
+	if !ok {
+		fmt.Printf("Отсутствует ключ 'pageProps' в данных с сайта %s\n", fullURL)
+	}
+
+	poems, ok := pageProps["poems"].([]interface{})
+	if !ok {
+		fmt.Printf("Отсутствует ключ 'poems' в данных с сайта %s\n", fullURL)
+	}
+
+	// Обработка данных о стихах
+	for _, poemData := range poems {
+		poemMap, ok := safeMapInterface(poemData)
+		if !ok {
+			continue
+		}
+
+		title, titleOk := safeString(poemMap, "title")
+		text, textOk := safeString(poemMap, "text")
+		authorMap, authorMapOk := safeMap(poemMap, "author")
+		if !titleOk || !authorMapOk || !textOk {
+			fmt.Printf("Ошибка при приведении типов для стиха на сайте %s\n", fullURL)
+			continue
+		}
+		author, authorOk := safeString(authorMap, "title")
+		if !authorOk {
+			fmt.Printf("Ошибка при приведении типов для стиха на сайте %s\n", fullURL)
+			continue
+		}
+		poem := Poem{
+			Title:  title,
+			Author: author,
+			Text:   cleanText(text),
+		}
+
+		Poems = append(Poems, poem)
+	}
+
 }

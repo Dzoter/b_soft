@@ -10,15 +10,30 @@ func main() {
 	for {
 		input := terminal.ReadInput()
 		if input != "" {
-			finder.FindPoem(input)
-			if len(finder.Poems) == 0 {
-				fmt.Println("Стихи не найдены.")
-				continue
+			processInput(input)
+		}
+	}
+}
+
+func processInput(input string) {
+	page := 1
+	for {
+		finder.FindPoem(input, page)
+		if len(finder.Poems) == 0 {
+			fmt.Println("Стихи не найдены.")
+			return
+		}
+
+		action := terminal.SelectPoem(finder.Poems)
+		switch action {
+		case terminal.ActionNext:
+			page++
+		case terminal.ActionPrev:
+			if page > 1 {
+				page--
 			}
-			selectedPoem := terminal.SelectPoem(finder.Poems)
-			if selectedPoem == nil {
-				continue
-			}
+		case terminal.ActionExit:
+			return
 		}
 	}
 }
