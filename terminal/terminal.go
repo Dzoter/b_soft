@@ -51,7 +51,6 @@ func clearScreen() {
 // displayPoem отображает список найденных стихов
 func displayPoem(poem finder.Poem) {
 	clearScreen()
-	clearCurrentLine()
 	fmt.Printf("%s - %s\n", poem.Title, poem.Author)
 	moveCursorUp()
 }
@@ -91,7 +90,6 @@ func SelectPoem(poems []finder.Poem) string {
 		case keyboard.KeyArrowDown:
 			if choice < len(poems)-1 {
 				choice++
-				fmt.Println(choice)
 				displayPoem(poems[choice])
 			} else {
 				return ActionNext // Перейти на следующую страницу
@@ -144,18 +142,6 @@ func copyToClipboard(text string) {
 		return
 	}
 	fmt.Println("Текст успешно скопирован в буфер обмена.")
-}
-
-func clearCurrentLine() {
-	switch runtime.GOOS {
-	case "windows":
-		// Используем `cmd` для очистки текущей строки
-		cmd := exec.Command("cmd", "/c", "echo \033[K")
-		cmd.Stdout = os.Stdout
-		cmd.Run()
-	default:
-		fmt.Print("\r\033[K") // Стирает текущую строку
-	}
 }
 
 func moveCursorUp() {
