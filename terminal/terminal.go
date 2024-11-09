@@ -6,13 +6,13 @@ import (
 	"log"
 	"os"
 	"os/exec"
-	"pet/finder"
+	"pet/interfaces"
 	"runtime"
 	"strings"
 
-	"github.com/atotto/clipboard"
 	"github.com/eiannone/keyboard"
 	"github.com/mattn/go-tty"
+	_ "pet/interfaces"
 )
 
 const (
@@ -21,10 +21,11 @@ const (
 	ActionExit = "exit"
 )
 
-// ReadInput считывает ввод пользователя
+// ReadInput считывает ввод пользователя (текст)
 func ReadInput() string {
+	//TODO реализовать многопоточку что бы отловить нажатие escape и выйти из метода
 	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Введите текст стиха для поиска:")
+	fmt.Println("Введите текст")
 
 	fmt.Print("> ")
 	input, err := reader.ReadString('\n')
@@ -48,10 +49,17 @@ func clearScreen() {
 	}
 }
 
-// displayPoem отображает список найденных стихов
-func displayPoem(poem finder.Poem) {
+// DisplayItemTitle DisplayItem отображает элемент
+func DisplayItemTitle(item interfaces.Displayable) {
 	clearScreen()
-	fmt.Printf("%s - %s\n", poem.Title, poem.Author)
+	DisplayMessage(item.DisplayTitle())
+	moveCursorUp()
+}
+
+// DisplayItemBody DisplayItemTitle DisplayItem отображает элемент
+func DisplayItemBody(item interfaces.Displayable) {
+	clearScreen()
+	DisplayMessage(item.DisplayBody())
 	moveCursorUp()
 }
 
@@ -60,16 +68,17 @@ func DisplayMessage(message string) {
 	fmt.Printf("%s\n", message)
 }
 
-// SelectPoem предлагает пользователю выбрать стихотворение из списка
-func SelectPoem(poems []finder.Poem) string {
+// SelectItemsWithPaging позволяет пользователю выбирать элементы с использованием клавиш вверх/вниз
+func SelectItemsWithPaging(items []interfaces.Displayable) (interfaces.Displayable, string) {
+	// Инициализация клавиатуры
 	if err := keyboard.Open(); err != nil {
 		log.Fatal(err)
 	}
 	defer keyboard.Close()
 
-	var choice int
+	choice := -1 // Начинаем выбор с нулевого элемента
 
-	DisplayMessage("Стихотворения загружены, нажимайте вниз/вверх для выбора")
+	DisplayMessage("Объекты загружены, нажимайте вверх/вниз для выбора")
 
 	for {
 		_, key, err := keyboard.GetKey()
@@ -79,69 +88,69 @@ func SelectPoem(poems []finder.Poem) string {
 
 		switch key {
 		case keyboard.KeyEsc:
-			return ActionExit
+			return nil, "exit"
+
 		case keyboard.KeyArrowUp:
 			if choice > 0 {
-				choice--
-				displayPoem(poems[choice])
+				choice-- // Перемещаем выбор вверх
+				DisplayItemTitle(items[choice])
 			} else {
-				return ActionPrev // Перейти на предыдущую страницу
+				return nil, "prev"
 			}
+
 		case keyboard.KeyArrowDown:
-			if choice < len(poems)-1 {
-				choice++
-				displayPoem(poems[choice])
+			if choice < len(items)-1 {
+				choice++ // Перемещаем выбор вниз
+				DisplayItemTitle(items[choice])
 			} else {
-				return ActionNext // Перейти на следующую страницу
+				return nil, "next"
 			}
+
 		case keyboard.KeyEnter:
-			res := displayPoemWithOpt(&poems[choice])
-			if res {
-				break
-			}
-			displayPoem(poems[choice])
-			continue
+			return items[choice], ""
+
 		default:
 			continue
 		}
 	}
 }
 
-// displayPoemWithOpt предоставляет пользователю варианты действий с выбранным стихотворением
-func displayPoemWithOpt(poem *finder.Poem) bool {
-	DisplayMessage(fmt.Sprintf("Вы выбрали: %s - %s\nТекст:\n%s\n", poem.Title, poem.Author, poem.Text))
+// SelectItemsWithoutPaging предлагает пользователю выбрать стрелочками элемент из списка
+func SelectItemsWithoutPaging(items []interfaces.Displayable) (interfaces.Displayable, string) {
+	if err := keyboard.Open(); err != nil {
+		log.Fatal(err)
+	}
+	defer keyboard.Close()
+
+	choice := -1 // начальное значение choice, отрицательное что-бы в начале всегда отображался 0 элемент
+
+	DisplayMessage("Объекты загружены, нажимайте вверх/вниз для выбора")
 
 	for {
-		fmt.Println("\nВыберите действие:")
-		fmt.Println("c - Скопировать текст в буфер обмена")
-		fmt.Println("Escape - Вернуться к списку стихотворений")
-
-		char, key, err := keyboard.GetKey()
+		_, key, err := keyboard.GetKey()
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		switch {
-		case key == keyboard.KeyEsc:
-			return false
-		case char == 'c' || char == 'C' || char == 'с' || char == 'С':
-			copyToClipboard(poem.Text)
-			return true
+		switch key {
+		case keyboard.KeyEsc:
+			return nil, ActionExit
+		case keyboard.KeyArrowUp:
+			if choice > 0 {
+				choice--
+				DisplayItemTitle(items[choice])
+			}
+		case keyboard.KeyArrowDown:
+			if choice < len(items)-1 {
+				choice++
+				DisplayItemTitle(items[choice])
+			}
+		case keyboard.KeyEnter:
+			return items[choice], ""
 		default:
 			continue
-
 		}
 	}
-}
-
-// copyToClipboard копирует текст в буфер обмена
-func copyToClipboard(text string) {
-	err := clipboard.WriteAll(text)
-	if err != nil {
-		fmt.Println("Ошибка при копировании текста в буфер обмена:", err)
-		return
-	}
-	fmt.Println("Текст успешно скопирован в буфер обмена.")
 }
 
 func moveCursorUp() {
@@ -157,4 +166,38 @@ func moveCursorUp() {
 
 	// Принудительное обновление
 	t.Output().Sync()
+}
+
+func DisplayActions(item interfaces.Actionable) bool {
+	if err := keyboard.Open(); err != nil {
+		log.Fatal(err)
+	}
+	defer keyboard.Close()
+
+	bindings := item.GetActions()
+
+	for {
+		fmt.Println("\nВыберите действие:")
+		for _, binding := range bindings {
+			fmt.Printf("%s - %s\n", string(binding.Char), binding.Description)
+		}
+		fmt.Println("Escape - Вернуться к списку")
+
+		char, key, err := keyboard.GetKey()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Проверка выхода
+		if key == keyboard.KeyEsc {
+			return false
+		}
+
+		// Поиск и выполнение действия по нажатой клавише
+		for _, binding := range bindings {
+			if key == binding.Key || char == binding.Char {
+				return binding.Action()
+			}
+		}
+	}
 }

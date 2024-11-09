@@ -2,38 +2,44 @@ package main
 
 import (
 	"fmt"
-	"pet/finder"
+	"pet/interfaces"
+	"pet/poem"
 	"pet/terminal"
 )
 
-func main() {
-	for {
-		input := terminal.ReadInput()
-		if input != "" {
-			processInput(input)
-		}
-	}
+type welcome struct {
+	title string
 }
 
-func processInput(input string) {
-	page := 1
-	for {
-		finder.FindPoem(input, page)
-		if len(finder.Poems) == 0 {
-			fmt.Println("Стихи не найдены.")
-			return
-		}
+func (w welcome) DisplayTitle() string {
+	return w.title
+}
+func (w welcome) DisplayBody() string {
+	return w.title
+}
+func (w welcome) Process() {
+	fmt.Println("заглушка")
+}
 
-		action := terminal.SelectPoem(finder.Poems)
-		switch action {
-		case terminal.ActionNext:
-			page++
-		case terminal.ActionPrev:
-			if page > 1 {
-				page--
+func main() {
+
+	wikiWelcome := welcome{title: "test"}
+
+	items := []interfaces.Displayable{poem.NewPoemParser(), wikiWelcome}
+
+	for {
+		item, action := terminal.SelectItemsWithoutPaging(items)
+		if item != nil {
+			switch v := item.(type) {
+			case poem.Parser:
+				v.Process()
+			case welcome:
+				v.Process()
 			}
-		case terminal.ActionExit:
-			return
+		}
+		if action == terminal.ActionExit {
+			terminal.DisplayMessage("Пока!")
+			break
 		}
 	}
 }
