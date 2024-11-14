@@ -1,18 +1,16 @@
 package terminal
 
 import (
-	"bufio"
 	"fmt"
+	"github.com/eiannone/keyboard"
+	"github.com/mattn/go-tty"
 	"log"
 	"os"
 	"os/exec"
 	"pet/interfaces"
+	_ "pet/interfaces"
 	"runtime"
 	"strings"
-
-	"github.com/eiannone/keyboard"
-	"github.com/mattn/go-tty"
-	_ "pet/interfaces"
 )
 
 const (
@@ -23,19 +21,60 @@ const (
 
 // ReadInput считывает ввод пользователя (текст)
 func ReadInput() string {
-	//TODO реализовать многопоточку что бы отловить нажатие escape и выйти из метода
-	reader := bufio.NewReader(os.Stdin)
-	fmt.Println("Введите текст")
+	// Создаем переменную для накопления введённых символов
+	var inputBuilder strings.Builder
+
+	// Сообщение для пользователя
+	DisplayMessage("Введите текст (нажмите Enter для подтверждения, Esc для выхода)")
+
+	// Открываем клавиатуру для отслеживания ввода
+	if err := keyboard.Open(); err != nil {
+		log.Fatal(err)
+	}
+	defer keyboard.Close()
 
 	fmt.Print("> ")
-	input, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Println("Ошибка при чтении ввода:", err)
-		return ""
-	}
 
-	input = strings.TrimSpace(input)
-	return input
+	// Бесконечный цикл для обработки нажатий клавиш
+	for {
+		// Получаем нажатую клавишу
+		char, key, err := keyboard.GetKey()
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		switch key {
+		case keyboard.KeyEsc:
+			fmt.Println("\nВыход из метода по сигналу Escape")
+			return "ActionExit" // Возвращаем специальное значение для выхода
+
+		case keyboard.KeyEnter:
+			// Возвращаем накопленный текст при нажатии Enter
+			fmt.Println() // Переход на новую строку после ввода
+			return inputBuilder.String()
+
+		case keyboard.KeyBackspace2:
+			// Удаляем последний символ при нажатии Backspace
+			currentInput := inputBuilder.String()
+			runes := []rune(currentInput) // Преобразуем строку в срез рун
+
+			if len(runes) > 0 {
+				// Убираем последний символ из среза рун
+				runes = runes[:len(runes)-1]
+				// Перезаписываем строку без последнего символа
+				inputBuilder.Reset()
+				inputBuilder.WriteString(string(runes))
+				fmt.Print("\b \b") // Убираем символ с экрана
+			}
+
+		default:
+			// Добавляем введённый символ к накопленному тексту и выводим его
+			if char != 0 { // Проверяем, что это символ, а не специальная клавиша
+				inputBuilder.WriteRune(char)
+				fmt.Print(string(char)) // Выводим символ на экран
+			}
+		}
+	}
 }
 
 func clearScreen() {

@@ -10,6 +10,8 @@ type Parser struct {
 	title string
 }
 
+//TODO выглядит как будто этот код должен находится в другом классе
+
 // NewPoemParser Используется для main, для определения экземпляра класса
 func NewPoemParser() Parser {
 	return Parser{
@@ -26,8 +28,13 @@ func (p Parser) DisplayBody() string {
 func (p Parser) Process() {
 	for {
 		input := terminal.ReadInput()
-		if input != "" {
+		switch input {
+		case "":
 			processInput(input)
+		case terminal.ActionExit:
+			return
+		default:
+			return
 		}
 	}
 }

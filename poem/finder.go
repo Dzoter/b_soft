@@ -15,6 +15,8 @@ import (
 	"github.com/PuerkitoBio/goquery"
 )
 
+//TODO больно много всякой херни в классе отвечающем за поиск стихов. Декомпозировать.
+
 // Poem структура для хранения данных о стихах
 type Poem struct {
 	Title  string `json:"title"`
