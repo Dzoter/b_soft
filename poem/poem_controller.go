@@ -4,37 +4,16 @@ import (
 	"pet/terminal"
 )
 
-const title = "Стихи"
-
-type Parser struct {
-	title string
-}
-
-//TODO выглядит как будто этот код должен находится в другом классе
-
-// NewPoemParser Используется для main, для определения экземпляра класса
-func NewPoemParser() Parser {
-	return Parser{
-		title: title,
-	}
-}
-func (p Parser) DisplayTitle() string {
-	return p.title
-}
-func (p Parser) DisplayBody() string {
-	return ""
-}
-
 func (p Parser) Process() {
 	for {
 		input := terminal.ReadInput()
 		switch input {
-		case "":
-			processInput(input)
 		case terminal.ActionExit:
 			return
-		default:
+		case "":
 			return
+		default:
+			processInput(input)
 		}
 	}
 }

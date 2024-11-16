@@ -46,7 +46,7 @@ func ReadInput() string {
 		switch key {
 		case keyboard.KeyEsc:
 			fmt.Println("\nВыход из метода по сигналу Escape")
-			return "ActionExit" // Возвращаем специальное значение для выхода
+			return ActionExit // Возвращаем специальное значение для выхода
 
 		case keyboard.KeyEnter:
 			// Возвращаем накопленный текст при нажатии Enter

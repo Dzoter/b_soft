@@ -3,57 +3,14 @@ package poem
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/atotto/clipboard"
 	"net/http"
 	"net/url"
-	"pet/interfaces"
-	"pet/structs"
 	"regexp"
 	"strconv"
 	"strings"
 
 	"github.com/PuerkitoBio/goquery"
 )
-
-//TODO больно много всякой херни в классе отвечающем за поиск стихов. Декомпозировать.
-
-// Poem структура для хранения данных о стихах
-type Poem struct {
-	Title  string `json:"title"`
-	Author string `json:"author"`
-	Text   string `json:"text"`
-}
-
-func (p Poem) DisplayTitle() string {
-	return fmt.Sprintf("%s %s\n", p.Author, p.Title)
-}
-func (p Poem) DisplayBody() string {
-	return p.Text
-}
-
-// GetActions возвращает список действий, связанных с Poem
-func (p Poem) GetActions() []structs.KeyBinding {
-	return []structs.KeyBinding{
-		{
-			Char:        'c',
-			Description: "Скопировать текст в буфер обмена",
-			Action:      p.copyToClipboard,
-		},
-	}
-}
-
-// Функция для копирования текста в буфер обмена
-func (p Poem) copyToClipboard() bool {
-	err := clipboard.WriteAll(p.Text)
-	if err != nil {
-		fmt.Println("Ошибка при копировании текста в буфер обмена:", err)
-		return false
-	}
-	fmt.Println("Текст успешно скопирован в буфер обмена.")
-	return true
-}
-
-var Poems []interfaces.Displayable
 
 // safeString извлекает строку из карты, если это возможно.
 func safeString(m map[string]interface{}, key string) (string, bool) {
