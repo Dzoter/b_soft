@@ -4,7 +4,7 @@ import (
 	"pet/terminal"
 )
 
-func (p Parser) Process() {
+func (p Fetcher) Process() {
 	for {
 		input := terminal.ReadInput()
 		switch input {

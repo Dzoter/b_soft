@@ -89,7 +89,7 @@ func clearScreen() {
 }
 
 // DisplayItemTitle DisplayItem отображает элемент
-func DisplayItemTitle(item interfaces.Displayable) {
+func DisplayItemTitle(item interfaces.TitleDisplayable) {
 	clearScreen()
 	DisplayMessage(item.DisplayTitle())
 	moveCursorUp()
@@ -155,7 +155,7 @@ func SelectItemsWithPaging(items []interfaces.Displayable) (interfaces.Displayab
 }
 
 // SelectItemsWithoutPaging предлагает пользователю выбрать стрелочками элемент из списка
-func SelectItemsWithoutPaging(items []interfaces.Displayable) (interfaces.Displayable, string) {
+func SelectItemsWithoutPaging(items []interfaces.TitleDisplayable) (interfaces.TitleDisplayable, string) {
 	if err := keyboard.Open(); err != nil {
 		log.Fatal(err)
 	}
