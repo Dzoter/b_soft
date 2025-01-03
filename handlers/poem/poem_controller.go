@@ -21,7 +21,7 @@ func (p Fetcher) Process() {
 func processInput(input string) {
 	page := 1
 	for {
-		FindPoem(input, page) // Используем функцию FindPoem из второго пакета
+		FillPoems(input, page) // Используем функцию FillPoems из второго пакета
 		if len(Poems) == 0 {
 			terminal.DisplayMessage("Стихи не найдены")
 			return
@@ -47,6 +47,5 @@ func processInput(input string) {
 		case terminal.ActionExit:
 			return
 		}
-
 	}
 }

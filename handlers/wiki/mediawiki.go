@@ -516,7 +516,7 @@ func (m *MWApi) ReadTextOnly(pageName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Println(body)
+
 	// Парсим ответ JSON
 	var response struct {
 		Query struct {

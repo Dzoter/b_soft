@@ -1,6 +1,8 @@
 package poem
 
-import "pet/interfaces"
+import (
+	"pet/interfaces"
+)
 
 // Poem структура для хранения данных о стихах
 type Poem struct {

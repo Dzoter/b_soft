@@ -53,7 +53,7 @@ func ReadInput() string {
 			fmt.Println() // Переход на новую строку после ввода
 			return inputBuilder.String()
 
-		case keyboard.KeyBackspace2:
+		case keyboard.KeyBackspace, keyboard.KeyBackspace2:
 			// Удаляем последний символ при нажатии Backspace
 			currentInput := inputBuilder.String()
 			runes := []rune(currentInput) // Преобразуем строку в срез рун

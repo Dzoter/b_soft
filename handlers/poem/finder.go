@@ -58,7 +58,7 @@ func cleanText(text string) string {
 	return strings.TrimSpace(text)
 }
 
-func FindPoem(query string, page int) {
+func FillPoems(query string, page int) {
 	Poems = Poems[:0]
 	fmt.Printf("Ищем стих: %s страница %d", query, page)
 
