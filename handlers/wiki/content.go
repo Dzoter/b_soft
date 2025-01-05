@@ -1,7 +1,6 @@
 package wiki
 
 import (
-	"encoding/json"
 	"fmt"
 	"log"
 	"regexp"
@@ -16,6 +15,10 @@ type ContentItem struct {
 	Title    string        `json:"title,omitempty"`    // For internal links
 	URL      string        `json:"url,omitempty"`      // For external links
 	Children []ContentItem `json:"children,omitempty"` // Nested content for headings
+}
+
+func (c ContentItem) DisplayTitle() string {
+	return fmt.Sprintf("%s \n", c.Text)
 }
 
 // ParseMediaWiki parses MediaWiki-like syntax into JSON-structured content.
@@ -118,19 +121,11 @@ func parseExternalLink(line string) ContentItem {
 	return ContentItem{Type: "link", URL: url, Title: url}
 }
 
-func ConvertStringWikiToJSON(title string) {
+func ConvertStringWikiToJSON(title string) []ContentItem {
 	// Parse the content to JSON structure
 	parsedContent, err := ParseMediaWiki(title)
 	if err != nil {
 		log.Fatal("Error parsing content:", err)
 	}
-
-	// Convert parsed content to JSON
-	jsonOutput, err := json.MarshalIndent(parsedContent, "", "  ")
-	if err != nil {
-		log.Fatal("Error generating JSON:", err)
-	}
-
-	// Display JSON output
-	fmt.Println(string(jsonOutput))
+	return parsedContent
 }
