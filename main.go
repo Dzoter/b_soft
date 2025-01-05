@@ -1,11 +1,11 @@
 package main
 
 import (
+	"b_soft/handlers/poem"
+	"b_soft/handlers/wiki"
+	"b_soft/interfaces"
+	"b_soft/terminal"
 	"fmt"
-	"pet/handlers/poem"
-	"pet/handlers/wiki"
-	"pet/interfaces"
-	"pet/terminal"
 )
 
 func main() {

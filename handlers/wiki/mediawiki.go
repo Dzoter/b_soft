@@ -531,7 +531,6 @@ func (m *MWApi) ReadTextOnly(pageName string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	fmt.Println(response.Query)
 	// Извлекаем первую (и единственную) страницу из результатов
 	for _, page := range response.Query.Pages {
 		return page.Extract, nil // Возвращаем только текст статьи

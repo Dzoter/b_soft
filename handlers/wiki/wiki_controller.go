@@ -1,13 +1,12 @@
 package wiki
 
 import (
+	"b_soft/interfaces"
+	"b_soft/terminal"
 	"log"
-	"pet/interfaces"
-	"pet/terminal"
 )
 
 func (w Fetcher) Process() {
-	//for {
 	input := terminal.ReadInput()
 
 	switch input {
@@ -18,7 +17,7 @@ func (w Fetcher) Process() {
 	default:
 		processInput(input)
 	}
-	//}
+
 }
 
 func processInput(input string) {
@@ -38,22 +37,22 @@ func processInput(input string) {
 		return
 	}
 	// Преобразуем []string в []interfaces.Displayable
-	allTitles := make([]interfaces.Displayable, 0, len(titles))
+	allTitles := make([]interfaces.TitleDisplayable, 0, len(titles))
 	for _, title := range titles {
 		tmpTitle := Title{Title: title}
 		allTitles = append(allTitles, tmpTitle)
 	}
 
-	item, _ := terminal.SelectItemsWithPaging(allTitles)
+	chosenTitle, _ := terminal.SelectItemsWithoutPaging(allTitles)
 
-	if item != nil {
-		switch v := item.(type) {
+	if chosenTitle != nil {
+		switch v := chosenTitle.(type) {
 		case Title:
-			_, err := client.ReadTextOnly(v.Title)
+			stringyPage, err := client.ReadTextOnly(v.Title)
 			if err != nil {
 				log.Fatal(err)
 			}
-			test()
+			ConvertStringWikiToJSON(stringyPage)
 		default:
 			break
 		}

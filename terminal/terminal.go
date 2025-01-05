@@ -1,14 +1,14 @@
 package terminal
 
 import (
+	"b_soft/interfaces"
+	_ "b_soft/interfaces"
 	"fmt"
 	"github.com/eiannone/keyboard"
 	"github.com/mattn/go-tty"
 	"log"
 	"os"
 	"os/exec"
-	"pet/interfaces"
-	_ "pet/interfaces"
 	"runtime"
 	"strings"
 )

@@ -1,9 +1,9 @@
 package poem
 
 import (
+	"b_soft/structs"
 	"fmt"
 	"github.com/atotto/clipboard"
-	"pet/structs"
 )
 
 func (p Poem) DisplayTitle() string {

@@ -1,7 +1,7 @@
 package poem
 
 import (
-	"pet/interfaces"
+	"b_soft/interfaces"
 )
 
 // Poem структура для хранения данных о стихах

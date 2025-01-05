@@ -1,4 +1,4 @@
-module pet
+module b_soft
 
 go 1.23
 

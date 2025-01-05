@@ -1,7 +1,7 @@
 package poem
 
 import (
-	"pet/terminal"
+	"b_soft/terminal"
 )
 
 func (p Fetcher) Process() {
